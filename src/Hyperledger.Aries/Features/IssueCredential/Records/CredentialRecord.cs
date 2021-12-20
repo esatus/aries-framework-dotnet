@@ -173,7 +173,8 @@ namespace Hyperledger.Aries.Features.IssueCredential
             state.Configure(CredentialState.Offered).Permit(CredentialTrigger.Reject, CredentialState.Rejected);
             state.Configure(CredentialState.Requested).Permit(CredentialTrigger.Issue, CredentialState.Issued);
             state.Configure(CredentialState.Requested).Permit(CredentialTrigger.Reject, CredentialState.Rejected);
-            state.Configure(CredentialState.Issued).Permit(CredentialTrigger.Revoke, CredentialState.Revoked);
+            state.Configure(CredentialState.Issued).Permit(CredentialTrigger.RevokePending, CredentialState.RevokePending);
+            state.Configure(CredentialState.RevokePending).Permit(CredentialTrigger.Revoke, CredentialState.Revoked);
 
             return state;
         }

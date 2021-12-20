@@ -18,6 +18,10 @@
         /// </summary>
         Reject,
         /// <summary>
+        /// The revoke is pending
+        /// </summary>
+        RevokePending,
+        /// <summary>
         /// The revoke
         /// </summary>
         Revoke

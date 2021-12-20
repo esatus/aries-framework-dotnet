@@ -184,7 +184,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
             var provisioning = await ProvisioningService.GetProvisioningAsync(agentContext.Wallet);
 
             // Check if the state machine is valid for revocation
-            await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
+            await credentialRecord.TriggerAsync(CredentialTrigger.RevokePending);
 
             var revocationRecord =
                 await RecordService.GetAsync<RevocationRegistryRecord>(agentContext.Wallet,
@@ -202,13 +202,23 @@ namespace Hyperledger.Aries.Features.IssueCredential
                 await PaymentService.GetTransactionCostAsync(agentContext, TransactionTypes.REVOC_REG_ENTRY);
 
             // Write the delta state on the ledger for the corresponding revocation registry
-            await LedgerService.SendRevocationRegistryEntryAsync(
+            bool succeed = await LedgerService.SendRevocationRegistryEntryAsync(
                 context: agentContext,
                 issuerDid: provisioning.IssuerDid,
                 revocationRegistryDefinitionId: revocationRecord.Id,
                 revocationDefinitionType: "CL_ACCUM",
                 value: revocRegistryDeltaJson,
                 paymentInfo: paymentInfo);
+
+            if (succeed)
+            {
+                // Trigger to Revoke
+                await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
+            }
+            else
+            {
+                // Add To Queue
+            }
 
             if (paymentInfo != null)
             {

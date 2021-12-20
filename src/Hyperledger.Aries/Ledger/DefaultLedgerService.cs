@@ -125,7 +125,7 @@ namespace Hyperledger.Aries.Ledger
         }
 
         /// <inheritdoc />
-        public virtual async Task SendRevocationRegistryEntryAsync(IAgentContext context, string issuerDid,
+        public virtual async Task<bool> SendRevocationRegistryEntryAsync(IAgentContext context, string issuerDid,
             string revocationRegistryDefinitionId, string revocationDefinitionType, string value, TransactionCost paymentInfo = null)
         {
             var req = await IndyLedger.BuildRevocRegEntryRequestAsync(issuerDid, revocationRegistryDefinitionId,
@@ -133,6 +133,7 @@ namespace Hyperledger.Aries.Ledger
             var res = await SignAndSubmitAsync(context, issuerDid, req, paymentInfo);
 
             EnsureSuccessResponse(res);
+            return true;
         }
 
         /// <inheritdoc />

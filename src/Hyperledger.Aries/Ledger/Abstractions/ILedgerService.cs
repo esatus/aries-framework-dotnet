@@ -165,7 +165,7 @@ namespace Hyperledger.Aries.Contracts
         /// <param name="value">The value.</param>
         /// <param name="paymentInfo">Payment information</param>
         /// <returns></returns>
-        Task SendRevocationRegistryEntryAsync(IAgentContext context, string issuerDid,
+        Task<bool> SendRevocationRegistryEntryAsync(IAgentContext context, string issuerDid,
             string revocationRegistryDefinitionId, string revocationDefinitionType, string value,
             TransactionCost paymentInfo = null);
 

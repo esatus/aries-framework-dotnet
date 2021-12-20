@@ -26,6 +26,10 @@ namespace Hyperledger.Aries.Features.IssueCredential
         /// </summary>
         Rejected,
         /// <summary>
+        /// The revoke is pending
+        /// </summary>
+        RevokePending,
+        /// <summary>
         /// The revoked
         /// </summary>
         Revoked
