@@ -82,6 +82,11 @@ namespace Hyperledger.Aries.Features.IssueCredential
         protected readonly ILogger<DefaultCredentialService> Logger;
 
         /// <summary>
+        /// The queue service
+        /// </summary>
+        protected readonly ILedgerQueueService LedgerQueueService;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="DefaultCredentialService"/> class.
         /// </summary>
         /// <param name="eventAggregator">The event aggregator.</param>
@@ -94,6 +99,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
         /// <param name="paymentService">The payment service.</param>
         /// <param name="messageService">The message service</param>
         /// <param name="logger">The logger.</param>
+        /// <param name="ledgerQueueService">The logger.</param>
         public DefaultCredentialService(
             IEventAggregator eventAggregator,
             ILedgerService ledgerService,
@@ -104,7 +110,8 @@ namespace Hyperledger.Aries.Features.IssueCredential
             IProvisioningService provisioningService,
             IPaymentService paymentService,
             IMessageService messageService,
-            ILogger<DefaultCredentialService> logger)
+            ILogger<DefaultCredentialService> logger,
+            ILedgerQueueService ledgerQueueService)
         {
             EventAggregator = eventAggregator;
             LedgerService = ledgerService;
@@ -116,6 +123,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
             PaymentService = paymentService;
             this.MessageService = messageService;
             Logger = logger;
+            LedgerQueueService = ledgerQueueService;
         }
 
         /// <inheritdoc />
@@ -201,32 +209,40 @@ namespace Hyperledger.Aries.Features.IssueCredential
             var paymentInfo =
                 await PaymentService.GetTransactionCostAsync(agentContext, TransactionTypes.REVOC_REG_ENTRY);
 
-            // Write the delta state on the ledger for the corresponding revocation registry
-            bool succeed = await LedgerService.SendRevocationRegistryEntryAsync(
-                context: agentContext,
-                issuerDid: provisioning.IssuerDid,
-                revocationRegistryDefinitionId: revocationRecord.Id,
-                revocationDefinitionType: "CL_ACCUM",
-                value: revocRegistryDeltaJson,
-                paymentInfo: paymentInfo);
-
-            if (succeed)
+            bool queueIsEmpty = await LedgerQueueService.RunQueueAsync();
+            if (!queueIsEmpty)
             {
-                // Trigger to Revoke
-                await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
+                LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
             }
-            else
-            {
-                // Add To Queue
-            }
+            else {
+                // Write the delta state on the ledger for the corresponding revocation registry
+                bool succeed = await LedgerService.SendRevocationRegistryEntryAsync(
+                    context: agentContext,
+                    issuerDid: provisioning.IssuerDid,
+                    revocationRegistryDefinitionId: revocationRecord.Id,
+                    revocationDefinitionType: "CL_ACCUM",
+                    value: revocRegistryDeltaJson,
+                    paymentInfo: paymentInfo);
 
-            if (paymentInfo != null)
-            {
-                await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
-            }
+                if (succeed)
+                {
+                    // Trigger to Revoke
+                    await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
 
-            // Update local credential record
-            await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
+                    if (paymentInfo != null)
+                    {
+                        await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
+                    }
+                }
+                else
+                {
+                    // Add To Queue
+                    LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                }
+
+                // Update local credential record
+                await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
+            }
         }
 
         /// <inheritdoc />

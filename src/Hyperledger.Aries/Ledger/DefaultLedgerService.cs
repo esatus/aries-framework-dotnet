@@ -130,10 +130,25 @@ namespace Hyperledger.Aries.Ledger
         {
             var req = await IndyLedger.BuildRevocRegEntryRequestAsync(issuerDid, revocationRegistryDefinitionId,
                 revocationDefinitionType, value);
-            var res = await SignAndSubmitAsync(context, issuerDid, req, paymentInfo);
-
-            EnsureSuccessResponse(res);
-            return true;
+           
+            try
+            {
+                var res = await SignAndSubmitAsync(context, issuerDid, req, paymentInfo);
+                EnsureSuccessResponse(res);
+                return true;
+            }
+            catch (IndyException ex)
+            {
+                // From indy sdk: Timeout for action ->  PoolLedgerTimeout = 307
+                if (ex.SdkErrorCode == 307)
+                {
+                    return false;
+                }
+                else
+                {
+                    throw ex;
+                }
+            }
         }
 
         /// <inheritdoc />
