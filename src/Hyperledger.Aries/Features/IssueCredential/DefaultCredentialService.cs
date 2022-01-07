@@ -239,10 +239,10 @@ namespace Hyperledger.Aries.Features.IssueCredential
                     // Add To Queue
                     LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
                 }
-
-                // Update local credential record
-                await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
             }
+
+            // Update local credential record
+            await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
         }
 
         /// <inheritdoc />
