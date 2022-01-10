@@ -99,6 +99,42 @@ namespace Hyperledger.Aries.Features.IssueCredential
         /// <param name="paymentService">The payment service.</param>
         /// <param name="messageService">The message service</param>
         /// <param name="logger">The logger.</param>
+        public DefaultCredentialService(
+           IEventAggregator eventAggregator,
+           ILedgerService ledgerService,
+           IConnectionService connectionService,
+           IWalletRecordService recordService,
+           ISchemaService schemaService,
+           ITailsService tailsService,
+           IProvisioningService provisioningService,
+           IPaymentService paymentService,
+           IMessageService messageService,
+           ILogger<DefaultCredentialService> logger)
+            : this(eventAggregator, 
+                  ledgerService, 
+                  connectionService, 
+                  recordService, 
+                  schemaService, tailsService,
+                  provisioningService,
+                  paymentService,
+                  messageService,
+                  logger,
+                  null)
+        { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DefaultCredentialService"/> class.
+        /// </summary>
+        /// <param name="eventAggregator">The event aggregator.</param>
+        /// <param name="ledgerService">The ledger service.</param>
+        /// <param name="connectionService">The connection service.</param>
+        /// <param name="recordService">The record service.</param>
+        /// <param name="schemaService">The schema service.</param>
+        /// <param name="tailsService">The tails service.</param>
+        /// <param name="provisioningService">The provisioning service.</param>
+        /// <param name="paymentService">The payment service.</param>
+        /// <param name="messageService">The message service</param>
+        /// <param name="logger">The logger.</param>
         /// <param name="ledgerQueueService">The logger.</param>
         public DefaultCredentialService(
             IEventAggregator eventAggregator,
@@ -209,14 +245,45 @@ namespace Hyperledger.Aries.Features.IssueCredential
             var paymentInfo =
                 await PaymentService.GetTransactionCostAsync(agentContext, TransactionTypes.REVOC_REG_ENTRY);
 
-            bool queueIsEmpty = await LedgerQueueService.RunQueueAsync();
-            if (!queueIsEmpty)
+            if(LedgerQueueService != null)
             {
-                LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                bool queueIsEmpty = await LedgerQueueService.RunQueueAsync();
+                if (!queueIsEmpty)
+                {
+                    LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                }
+                else
+                {
+                    // Write the delta state on the ledger for the corresponding revocation registry
+                    bool succeed = await LedgerService.SendRevocationRegistryEntryAsync(
+                        context: agentContext,
+                        issuerDid: provisioning.IssuerDid,
+                        revocationRegistryDefinitionId: revocationRecord.Id,
+                        revocationDefinitionType: "CL_ACCUM",
+                        value: revocRegistryDeltaJson,
+                        paymentInfo: paymentInfo);
+
+                    if (succeed)
+                    {
+                        // Trigger to Revoke
+                        await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
+
+                        if (paymentInfo != null)
+                        {
+                            await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
+                        }
+                    }
+                    else
+                    {
+                        // Add To Queue
+                        LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                    }
+                }             
             }
-            else {
+            else
+            {
                 // Write the delta state on the ledger for the corresponding revocation registry
-                bool succeed = await LedgerService.SendRevocationRegistryEntryAsync(
+                await LedgerService.SendRevocationRegistryEntryAsync(
                     context: agentContext,
                     issuerDid: provisioning.IssuerDid,
                     revocationRegistryDefinitionId: revocationRecord.Id,
@@ -224,20 +291,12 @@ namespace Hyperledger.Aries.Features.IssueCredential
                     value: revocRegistryDeltaJson,
                     paymentInfo: paymentInfo);
 
-                if (succeed)
-                {
-                    // Trigger to Revoke
-                    await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
+                // Trigger to Revoke
+                await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
 
-                    if (paymentInfo != null)
-                    {
-                        await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
-                    }
-                }
-                else
+                if (paymentInfo != null)
                 {
-                    // Add To Queue
-                    LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                    await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
                 }
             }
 
