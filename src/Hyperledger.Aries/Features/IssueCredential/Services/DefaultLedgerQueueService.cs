@@ -73,16 +73,11 @@ namespace Hyperledger.Aries.Features.IssueCredential
                     // Trigger to Revoke
                     await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
 
-                    if (paymentInfo != null)
-                    {
-                        await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
-                    }
-
                     // Update local credential record
                     await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
 
+                    //Remove from Queue and go to next
                     _queue.Dequeue();
-
                     return await NextQueueEntry(agentContext, paymentInfo);
                 }
                 else
