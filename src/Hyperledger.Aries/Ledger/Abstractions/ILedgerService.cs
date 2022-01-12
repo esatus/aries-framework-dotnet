@@ -1,11 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hyperledger.Aries.Agents;
-using Hyperledger.Aries.Features.IssueCredential;
 using Hyperledger.Aries.Ledger;
 using Hyperledger.Aries.Payments;
 using Hyperledger.Indy.LedgerApi;
-using Hyperledger.Indy.PoolApi;
 
 namespace Hyperledger.Aries.Contracts
 {

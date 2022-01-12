@@ -8,15 +8,11 @@ using Hyperledger.Aries.Extensions;
 using Hyperledger.Aries.Utils;
 using Hyperledger.Indy.DidApi;
 using Hyperledger.Indy.LedgerApi;
-using Hyperledger.Indy.PoolApi;
 using Newtonsoft.Json.Linq;
 using IndyPayments = Hyperledger.Indy.PaymentsApi.Payments;
 using IndyLedger = Hyperledger.Indy.LedgerApi.Ledger;
 using Hyperledger.Aries.Payments;
-using Polly;
 using Hyperledger.Indy;
-using System.Diagnostics;
-using Hyperledger.Aries.Features.IssueCredential;
 
 namespace Hyperledger.Aries.Ledger
 {
