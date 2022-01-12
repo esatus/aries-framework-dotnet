@@ -3,15 +3,15 @@ using Hyperledger.Aries.Contracts;
 using Hyperledger.Aries.Ledger;
 using Hyperledger.Aries.Payments;
 using Hyperledger.Aries.Storage;
+using Hyperledger.Indy;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Hyperledger.Aries.Features.IssueCredential
 {
     public class DefaultLedgerQueueService : ILedgerQueueService
     {
-        private Queue<Dictionary<string, string>> _queue = new Queue<Dictionary<string, string>>(); 
-
         private ILedgerService LedgerService;
         private IAgentProvider AgentProvider;
         private IPaymentService PaymentService;
@@ -30,13 +30,10 @@ namespace Hyperledger.Aries.Features.IssueCredential
             RecordService = recordService;
         }
 
-        public void AddToQueue(string issuerDid, string credentialId, string revocRegistryDeltaJson)
+        public async Task AddToQueueAsync(LedgerQueueObject ledgerQueueObject)
         {
-            Dictionary<string, string> entry = new Dictionary<string, string>();
-            entry.Add("issuerDid", issuerDid);
-            entry.Add("credentialId", credentialId);
-            entry.Add("revocRegistryDeltaJson", revocRegistryDeltaJson);
-            _queue.Enqueue(entry);
+            IAgentContext agentContext = await AgentProvider.GetContextAsync();
+            await RecordService.AddAsync(agentContext.Wallet, ledgerQueueObject);
         }
 
         public async Task<bool> RunQueueAsync()
@@ -44,48 +41,30 @@ namespace Hyperledger.Aries.Features.IssueCredential
             IAgentContext agentContext = await AgentProvider.GetContextAsync();
             TransactionCost paymentInfo = await PaymentService.GetTransactionCostAsync(agentContext, TransactionTypes.REVOC_REG_ENTRY);
 
-            return await NextQueueEntry(agentContext, paymentInfo);
-        }
+            List<LedgerQueueObject> ledgerQueueObjects = await RecordService.SearchAsync<LedgerQueueObject>(agentContext.Wallet);
+            ledgerQueueObjects.OrderBy(x => x.TimeStamp);
 
-        private async Task<bool> NextQueueEntry(IAgentContext agentContext, TransactionCost paymentInfo)
-        {
-            if(_queue.Count == 0)
+            foreach(LedgerQueueObject ledgerQueueObject in ledgerQueueObjects)
             {
-                // Queue is empty
-                return true;
-            }
-            else
-            {
-                Dictionary<string, string> entry = _queue.Peek();
-                var credentialRecord = await RecordService.GetAsync<CredentialRecord>(agentContext.Wallet, entry["credentialId"]);
-
-                bool succeed = await LedgerService.SendRevocationRegistryEntryAsync(
-                    agentContext,
-                    entry["issuerDid"],
-                    credentialRecord.RevocationRegistryId,
-                    "CL_ACCUM",
-                    entry["revocRegistryDeltaJson"],
-                    paymentInfo
-                    );
-
-                if (succeed)
+                try
                 {
-                    // Trigger to Revoke
-                    await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
+                    var res = await LedgerService.SignAndSubmitAsync(agentContext, ledgerQueueObject.IssuerDID, ledgerQueueObject.Request, paymentInfo);
 
-                    // Update local credential record
+                    // Trigger credential record to revoke
+                    var credentialRecord = await RecordService.GetAsync<CredentialRecord>(agentContext.Wallet, ledgerQueueObject.ObjectId);
+                    await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
                     await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
 
                     //Remove from Queue and go to next
-                    _queue.Dequeue();
-                    return await NextQueueEntry(agentContext, paymentInfo);
+                    await RecordService.DeleteAsync<LedgerQueueObject>(agentContext.Wallet, ledgerQueueObject.ObjectId);
                 }
-                else
+                catch (IndyException ex) when (ex.SdkErrorCode == 307) // From indy sdk: Timeout for action ->  PoolLedgerTimeout = 307
                 {
                     return false;
                 }
             }
-            
+
+            return true;
         }
     }
 }

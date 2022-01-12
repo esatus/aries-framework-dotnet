@@ -16,6 +16,7 @@ using Hyperledger.Aries.Payments;
 using Polly;
 using Hyperledger.Indy;
 using System.Diagnostics;
+using Hyperledger.Aries.Features.IssueCredential;
 
 namespace Hyperledger.Aries.Ledger
 {
@@ -137,18 +138,10 @@ namespace Hyperledger.Aries.Ledger
                 EnsureSuccessResponse(res);
                 return true;
             }
-            catch (IndyException ex)
+            catch (IndyException ex) when (ex.SdkErrorCode == 307) // From indy sdk: Timeout for action ->  PoolLedgerTimeout = 307
             {
-                // From indy sdk: Timeout for action ->  PoolLedgerTimeout = 307
-                if (ex.SdkErrorCode == 307)
-                {
-                    return false;
-                }
-                else
-                {
-                    throw ex;
-                }
-            }
+                return false;
+            }       
         }
 
         /// <inheritdoc />
@@ -213,7 +206,8 @@ namespace Hyperledger.Aries.Ledger
             return jobj["result"]["data"].ToObject<IList<AuthorizationRule>>();
         }
 
-        private async Task<string> SignAndSubmitAsync(IAgentContext context, string submitterDid, string request, TransactionCost paymentInfo)
+        /// <inheritdoc />
+        public async Task<string> SignAndSubmitAsync(IAgentContext context, string submitterDid, string request, TransactionCost paymentInfo)
         {
             if (paymentInfo != null)
             {

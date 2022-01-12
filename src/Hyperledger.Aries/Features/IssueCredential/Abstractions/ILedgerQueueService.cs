@@ -4,7 +4,17 @@ namespace Hyperledger.Aries.Features.IssueCredential
 {
     public interface ILedgerQueueService
     {
-        public void AddToQueue(string issuerDid, string credentialId, string revocRegistryDeltaJson);
+        /// <summary>
+        /// Adds a new LedgerQueueObject to queue.
+        /// </summary>
+        /// <param name="ledgerQueueObject"></param>
+        /// <returns></returns>
+        public Task AddToQueueAsync(LedgerQueueObject ledgerQueueObject);
+
+        /// <summary>
+        /// Tries to write every object in the queue to the ledger.
+        /// </summary>
+        /// <returns>Returns true if succeed, otherwise false.</returns>
         public Task<bool> RunQueueAsync();
     }
 }

@@ -24,7 +24,6 @@ using Hyperledger.Aries.Payments;
 using Hyperledger.Aries.Storage;
 using Hyperledger.Indy;
 using Polly;
-using Hyperledger.Aries.Features.PresentProof;
 
 namespace Hyperledger.Aries.Features.IssueCredential
 {
@@ -250,7 +249,9 @@ namespace Hyperledger.Aries.Features.IssueCredential
                 bool queueIsEmpty = await LedgerQueueService.RunQueueAsync();
                 if (!queueIsEmpty)
                 {
-                    LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                    LedgerQueueObject ledgerQueueObject = LedgerQueueObject.CreateRevocationQueueObject(provisioning.IssuerDid, revocationRecord.Id, 
+                        revocRegistryDeltaJson, credentialId);
+                    await LedgerQueueService.AddToQueueAsync(ledgerQueueObject);
                 }
                 else
                 {
@@ -267,16 +268,13 @@ namespace Hyperledger.Aries.Features.IssueCredential
                     {
                         // Trigger to Revoke
                         await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
-
-                        if (paymentInfo != null)
-                        {
-                            await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
-                        }
                     }
                     else
                     {
                         // Add To Queue
-                        LedgerQueueService.AddToQueue(provisioning.IssuerDid, credentialId, revocRegistryDeltaJson);
+                        LedgerQueueObject ledgerQueueObject = LedgerQueueObject.CreateRevocationQueueObject(provisioning.IssuerDid, revocationRecord.Id,
+                            revocRegistryDeltaJson, credentialId);
+                        await LedgerQueueService.AddToQueueAsync(ledgerQueueObject);
                     }
                 }             
             }
@@ -294,10 +292,11 @@ namespace Hyperledger.Aries.Features.IssueCredential
                 // Trigger to Revoke
                 await credentialRecord.TriggerAsync(CredentialTrigger.Revoke);
 
-                if (paymentInfo != null)
-                {
-                    await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
-                }
+            }
+
+            if (paymentInfo != null)
+            {
+                await RecordService.UpdateAsync(agentContext.Wallet, paymentInfo.PaymentAddress);
             }
 
             // Update local credential record

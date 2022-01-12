@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hyperledger.Aries.Agents;
+using Hyperledger.Aries.Features.IssueCredential;
 using Hyperledger.Aries.Ledger;
 using Hyperledger.Aries.Payments;
 using Hyperledger.Indy.LedgerApi;
@@ -179,5 +180,15 @@ namespace Hyperledger.Aries.Contracts
         /// <returns></returns>
         Task RegisterSchemaAsync(IAgentContext context, string issuerDid, string schemaJson,
             TransactionCost paymentInfo = null);
+
+        /// <summary>
+        /// Sign And submit the request.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="submitterDid">The submitter did.</param>
+        /// <param name="request">The request.</param>
+        /// <param name="paymentInfo">Payment information.</param>
+        /// <returns></returns>
+        Task<string> SignAndSubmitAsync(IAgentContext context, string submitterDid, string request, TransactionCost paymentInfo);
     }
 }
