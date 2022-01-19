@@ -9,7 +9,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
         /// </summary>
         /// <param name="ledgerQueueObject"></param>
         /// <returns></returns>
-        public Task AddToQueueAsync(LedgerQueueObject ledgerQueueObject);
+        public Task AddToQueueAsync(LedgerQueueRecord ledgerQueueObject);
 
         /// <summary>
         /// Tries to write every object in the queue to the ledger.

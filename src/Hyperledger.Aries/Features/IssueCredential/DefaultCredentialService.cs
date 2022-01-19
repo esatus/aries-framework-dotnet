@@ -249,7 +249,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
                 bool queueIsEmpty = await LedgerQueueService.RunQueueAsync();
                 if (!queueIsEmpty)
                 {
-                    LedgerQueueObject ledgerQueueObject = LedgerQueueObject.CreateRevocationQueueObject(provisioning.IssuerDid, revocationRecord.Id, 
+                    LedgerQueueRecord ledgerQueueObject = await LedgerQueueRecord.CreateRevocationQueueObject(provisioning.IssuerDid, revocationRecord.Id, 
                         revocRegistryDeltaJson, credentialId);
                     await LedgerQueueService.AddToQueueAsync(ledgerQueueObject);
                 }
@@ -272,7 +272,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
                     else
                     {
                         // Add To Queue
-                        LedgerQueueObject ledgerQueueObject = LedgerQueueObject.CreateRevocationQueueObject(provisioning.IssuerDid, revocationRecord.Id,
+                        LedgerQueueRecord ledgerQueueObject = await LedgerQueueRecord.CreateRevocationQueueObject(provisioning.IssuerDid, revocationRecord.Id,
                             revocRegistryDeltaJson, credentialId);
                         await LedgerQueueService.AddToQueueAsync(ledgerQueueObject);
                     }
