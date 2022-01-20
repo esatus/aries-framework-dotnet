@@ -43,7 +43,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
             TransactionCost paymentInfo = await PaymentService.GetTransactionCostAsync(agentContext, TransactionTypes.REVOC_REG_ENTRY);
 
             List<LedgerQueueRecord> ledgerQueueObjects = await RecordService.SearchAsync<LedgerQueueRecord>(agentContext.Wallet);
-            ledgerQueueObjects.OrderBy(x => x.CreatedAtUtc);
+            ledgerQueueObjects = ledgerQueueObjects.OrderBy(x => x.CreatedAtUtc).ToList<LedgerQueueRecord>();
 
             foreach(LedgerQueueRecord ledgerQueueObject in ledgerQueueObjects)
             {
@@ -57,7 +57,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
                     await RecordService.UpdateAsync(agentContext.Wallet, credentialRecord);
 
                     //Remove from queue
-                    await RecordService.DeleteAsync<LedgerQueueRecord>(agentContext.Wallet, ledgerQueueObject.ObjectId);
+                    await RecordService.DeleteAsync<LedgerQueueRecord>(agentContext.Wallet, ledgerQueueObject.Id);
                 }
                 catch (IndyException ex) when (ex.SdkErrorCode == 307) // From indy sdk: Timeout for action ->  PoolLedgerTimeout = 307
                 {
@@ -66,7 +66,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
                 catch (Exception ex) // If the ledger was reachable but the operation was rejected, remove from queue
                 {
                     //Remove from queue
-                    await RecordService.DeleteAsync<LedgerQueueRecord>(agentContext.Wallet, ledgerQueueObject.ObjectId);
+                    await RecordService.DeleteAsync<LedgerQueueRecord>(agentContext.Wallet, ledgerQueueObject.Id);
                 }
             }
 

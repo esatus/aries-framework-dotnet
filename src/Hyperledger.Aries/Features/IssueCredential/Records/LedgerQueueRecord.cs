@@ -19,16 +19,14 @@ namespace Hyperledger.Aries.Features.IssueCredential
         public static async Task<LedgerQueueRecord> CreateRevocationQueueObject(string issuerDid, string revocationRecordId, string revocRegistryDeltaJson, string credentialId)
         {
             LedgerQueueRecord ledgerQueueObject = new LedgerQueueRecord();
-
-            ledgerQueueObject.Request = await IndyLedger.BuildRevocRegEntryRequestAsync(issuerDid, revocationRecordId, "CL_ACCUM", revocRegistryDeltaJson);
-
-            ledgerQueueObject.Id = revocationRecordId;
-
-            ledgerQueueObject.IssuerDID = issuerDid;
-            ledgerQueueObject.ObjectId = credentialId;
-            ledgerQueueObject.ReqType = LedgerQueueRecord.Type.Revocation;
-
             ledgerQueueObject.CreatedAtUtc = DateTime.UtcNow;
+            ledgerQueueObject.Id = credentialId;
+
+            ledgerQueueObject.ReqType = LedgerQueueRecord.Type.Revocation;
+            ledgerQueueObject.Request = await IndyLedger.BuildRevocRegEntryRequestAsync(issuerDid, revocationRecordId, "CL_ACCUM", revocRegistryDeltaJson);
+            ledgerQueueObject.IssuerDID = issuerDid;
+            ledgerQueueObject.ObjectId = credentialId;           
+
 
             return ledgerQueueObject;
         }
