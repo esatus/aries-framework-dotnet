@@ -14,7 +14,6 @@ using Hyperledger.Aries.Storage;
 using Hyperledger.Aries.Utils;
 using Hyperledger.Indy.CryptoApi;
 using Hyperledger.Indy.DidApi;
-using Hyperledger.Indy.WalletApi;
 using Microsoft.Extensions.Logging;
 
 namespace Hyperledger.Aries.Features.DidExchange
@@ -69,7 +68,7 @@ namespace Hyperledger.Aries.Features.DidExchange
             config = config ?? new InviteConfiguration();
 
             Logger.LogInformation(LoggingEvents.CreateInvitation, "ConnectionId {0}", connectionId);
-
+            
             var connectionKey = await Crypto.CreateKeyAsync(agentContext.Wallet, "{}");
 
             var connection = new ConnectionRecord { Id = connectionId };
@@ -97,11 +96,22 @@ namespace Hyperledger.Aries.Features.DidExchange
 
             await RecordService.AddAsync(agentContext.Wallet, connection);
 
+            IList<string> routingKeys = null;
+            if (provisioning.Endpoint.Verkey != null)
+            {
+                routingKeys = (config.UseDidKeyFormat
+                    ? provisioning.Endpoint.Verkey
+                        .Where(DidUtils.IsFullVerkey)
+                        .Select(DidUtils.ConvertVerkeyToDidKey)
+                    : provisioning.Endpoint.Verkey).ToList();
+            }
+            string recipientKey = config.UseDidKeyFormat ? DidUtils.ConvertVerkeyToDidKey(connectionKey) : connectionKey;
+            
             return (new ConnectionInvitationMessage(agentContext.UseMessageTypesHttps)
             {
                 ServiceEndpoint = provisioning.Endpoint.Uri,
-                RoutingKeys = provisioning.Endpoint.Verkey != null ? provisioning.Endpoint.Verkey : null,
-                RecipientKeys = new[] { connectionKey },
+                RoutingKeys = routingKeys,
+                RecipientKeys = new[] { recipientKey },
                 Label = config.MyAlias.Name ?? provisioning.Owner.Name,
                 ImageUrl = config.MyAlias.ImageUrl ?? provisioning.Owner.ImageUrl
             }, connection);
@@ -124,7 +134,7 @@ namespace Hyperledger.Aries.Features.DidExchange
         {
             Logger.LogInformation(LoggingEvents.AcceptInvitation, "Key {0}, Endpoint {1}",
                 invitation.RecipientKeys[0], invitation.ServiceEndpoint);
-
+            
             var my = await Did.CreateAndStoreMyDidAsync(agentContext.Wallet, "{}");
 
             var connection = new ConnectionRecord
@@ -181,9 +191,9 @@ namespace Hyperledger.Aries.Features.DidExchange
         public virtual async Task<string> ProcessRequestAsync(IAgentContext agentContext, ConnectionRequestMessage request, ConnectionRecord connection)
         {
             Logger.LogInformation(LoggingEvents.ProcessConnectionRequest, "Did {0}", request.Connection.Did);
-
+            
             var my = await Did.CreateAndStoreMyDidAsync(agentContext.Wallet, "{}");
-
+            
             //TODO throw exception or a problem report if the connection request features a did doc that has no indy agent did doc convention featured
             //i.e there is no way for this agent to respond to messages. And or no keys specified
             await Did.StoreTheirDidAsync(agentContext.Wallet, new { did = request.Connection.Did, verkey = request.Connection.DidDoc.Keys[0].PublicKeyBase58 }.ToJson());
@@ -335,6 +345,35 @@ namespace Hyperledger.Aries.Features.DidExchange
             Logger.LogTrace(LoggingEvents.DeleteConnection, "ConnectionId {0}", connectionId);
 
             return await RecordService.DeleteAsync<ConnectionRecord>(agentContext.Wallet, connectionId);
+        }
+
+        public virtual async Task<ConnectionRecord> ResolveByMyKeyAsync(IAgentContext agentContext, string myKey)
+        {
+            if (string.IsNullOrEmpty(myKey))
+                throw new ArgumentNullException(nameof(myKey));
+
+            if (agentContext == null)
+                throw new ArgumentNullException(nameof(agentContext));
+
+            var record =
+                // Check if key is part of a connection
+                (await ListAsync(agentContext,
+                    SearchQuery.Equal(nameof(ConnectionRecord.MyVk), myKey), 5))
+                .SingleOrDefault()
+
+                // Check if key is part of a multiparty invitation
+                ?? (await ListAsync(agentContext,
+                    SearchQuery.And(
+                        SearchQuery.Equal(TagConstants.ConnectionKey, myKey),
+                        SearchQuery.Equal(nameof(ConnectionRecord.MultiPartyInvitation), "True")), 5))
+                .SingleOrDefault()
+
+                // Check if key is part of a single party invitation
+                ?? (await ListAsync(agentContext,
+                    SearchQuery.Equal(TagConstants.ConnectionKey, myKey), 5))
+                .SingleOrDefault();
+            
+            return record;
         }
     }
 }
