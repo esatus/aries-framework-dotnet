@@ -43,7 +43,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
             TransactionCost paymentInfo = await PaymentService.GetTransactionCostAsync(agentContext, TransactionTypes.REVOC_REG_ENTRY);
 
             List<LedgerQueueRecord> ledgerQueueObjects = await RecordService.SearchAsync<LedgerQueueRecord>(agentContext.Wallet);
-            ledgerQueueObjects = ledgerQueueObjects.OrderBy(x => x.CreatedAtUtc).ToList<LedgerQueueRecord>();
+            ledgerQueueObjects = ledgerQueueObjects.FindAll(x => x.QueueStatus == LedgerQueueRecord.Status.Pending).OrderBy(x => x.CreatedAtUtc).ToList<LedgerQueueRecord>();
 
             foreach(LedgerQueueRecord ledgerQueueObject in ledgerQueueObjects)
             {
@@ -63,10 +63,10 @@ namespace Hyperledger.Aries.Features.IssueCredential
                 {
                     return false;
                 }
-                catch (Exception ex) // If the ledger was reachable but the operation was rejected, remove from queue
+                catch // If the ledger was reachable but the operation was rejected, change status to failed
                 {
-                    //Remove from queue
-                    await RecordService.DeleteAsync<LedgerQueueRecord>(agentContext.Wallet, ledgerQueueObject.Id);
+                    ledgerQueueObject.QueueStatus = LedgerQueueRecord.Status.Failed;
+                    await RecordService.UpdateAsync(agentContext.Wallet, ledgerQueueObject);
                 }
             }
 

@@ -11,6 +11,7 @@ namespace Hyperledger.Aries.Features.IssueCredential
         public string IssuerDID;
         public string Request;
         public string ObjectId;
+        public Status QueueStatus; 
 
         public override string TypeName => "LedgerQueueRecord";
 
@@ -25,8 +26,8 @@ namespace Hyperledger.Aries.Features.IssueCredential
             ledgerQueueObject.ReqType = LedgerQueueRecord.Type.Revocation;
             ledgerQueueObject.Request = await IndyLedger.BuildRevocRegEntryRequestAsync(issuerDid, revocationRecordId, "CL_ACCUM", revocRegistryDeltaJson);
             ledgerQueueObject.IssuerDID = issuerDid;
-            ledgerQueueObject.ObjectId = credentialId;           
-
+            ledgerQueueObject.ObjectId = credentialId;
+            ledgerQueueObject.QueueStatus = Status.Pending;
 
             return ledgerQueueObject;
         }
@@ -36,6 +37,12 @@ namespace Hyperledger.Aries.Features.IssueCredential
             Revocation,
             SchemaDefinition,
             CredentialDefinition
+        }
+
+        public enum Status
+        {
+            Pending,
+            Failed
         }
     }
 
